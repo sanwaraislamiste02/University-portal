@@ -10,6 +10,7 @@ const tools = [
   { icon: "📢", title: "Announcements", desc: "Stay updated with notices from faculty.",       path: "/announcements" },
   { icon: "✉️", title: "Contact",       desc: "Send a message to your faculty or supervisor.", path: "/contact"       },
   { icon: "⭐", title: "Rate Faculty", desc: "Anonymously rate your faculty members.", path: "/rate-faculty" },
+  { icon: "👨‍🏫", title: "Faculty", desc: "View faculty members and their ratings.", path: "/faculty-list" },
 ];
 
 function StudentDashboard() {

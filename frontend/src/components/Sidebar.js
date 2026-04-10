@@ -10,6 +10,7 @@ const studentLinks = [
   { label: "Announcements", path: "/announcements", icon: "📢" },
   { label: "Contact",     path: "/contact",       icon: "✉️" },
   { label: "Rate Faculty", path: "/rate-faculty", icon: "⭐" },
+  { label: "Faculty",  path: "/faculty-list", icon: "👨‍🏫" },
 ];
 
 const facultyLinks = [

@@ -20,6 +20,7 @@ import ManageCourses from "./pages/ManageCourses";
 import PrivateRoute from "./components/Privateroute";
 import RoleRoute from "./components/RoleRoute";
 import RateFaculty from "./pages/RateFaculty";
+import FacultyList from "./pages/FacultyList";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
         <Route path="/post-announcement" element={<PrivateRoute><PostAnnouncement /></PrivateRoute>} />
         <Route path="/manage-courses" element={<PrivateRoute><ManageCourses /></PrivateRoute>} />
         <Route path="/rate-faculty" element={<PrivateRoute><RateFaculty /></PrivateRoute>} />
+        <Route path="/faculty-list" element={<PrivateRoute><FacultyList /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   );
