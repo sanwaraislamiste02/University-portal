@@ -9,6 +9,7 @@ const tools = [
   { icon: "🗓️", title: "Timetable",    desc: "See your weekly class schedule.",               path: "/timetable"     },
   { icon: "📢", title: "Announcements", desc: "Stay updated with notices from faculty.",       path: "/announcements" },
   { icon: "✉️", title: "Contact",       desc: "Send a message to your faculty or supervisor.", path: "/contact"       },
+  { icon: "⭐", title: "Rate Faculty", desc: "Anonymously rate your faculty members.", path: "/rate-faculty" },
 ];
 
 function StudentDashboard() {

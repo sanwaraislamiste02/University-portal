@@ -19,6 +19,7 @@ import PostAnnouncement from "./pages/PostAnnouncement";
 import ManageCourses from "./pages/ManageCourses";
 import PrivateRoute from "./components/Privateroute";
 import RoleRoute from "./components/RoleRoute";
+import RateFaculty from "./pages/RateFaculty";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
         <Route path="/timetable" element={<PrivateRoute><Timetable /></PrivateRoute>} />
         <Route path="/post-announcement" element={<PrivateRoute><PostAnnouncement /></PrivateRoute>} />
         <Route path="/manage-courses" element={<PrivateRoute><ManageCourses /></PrivateRoute>} />
+        <Route path="/rate-faculty" element={<PrivateRoute><RateFaculty /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   );

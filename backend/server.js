@@ -23,6 +23,7 @@ app.use("/announcements", require("./routes/announcements"));
 app.use("/messages", require("./routes/messages"));
 app.use("/timetable", require("./routes/timetable"));
 app.use("/courses", require("./routes/courses"));
+app.use("/ratings", require("./routes/ratings"));
 
 // ✅ Server
 app.listen(5000, () => console.log("Server running on 5000"));
