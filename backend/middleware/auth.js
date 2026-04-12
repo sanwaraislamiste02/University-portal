@@ -1,20 +1,18 @@
-const jwt = require("jsonwebtoken");
-const SECRET = "mysecretkey";
-
-module.exports = (req, res, next) => {
-  const token = req.headers["authorization"];
-
-  if (!token) {
-    return res.status(403).json({ msg: "No token" });
-  }
-
+router.put("/profile/update", async (req, res) => {
   try {
-    const decoded = jwt.verify(token, SECRET);
+    const { email, name, phone, age, department, address,
+            dob, gender, blood, nationality,
+            studentId, program, year, batch, rollNo, admDate,
+            designation, officeRoom, expertise } = req.body;
 
-    req.user = decoded;   // ✅ attach user info
-    next();               // ✅ go to next route
-
+    await User.findOneAndUpdate({ email }, {
+      name, phone, age, department, address,
+      dob, gender, blood, nationality,
+      studentId, program, year, batch, rollNo, admDate,
+      designation, officeRoom, expertise
+    });
+    res.json({ message: "Profile updated successfully!" });
   } catch (err) {
-    return res.status(401).json({ msg: "Invalid token" });
+    res.status(500).json({ message: "Server error" });
   }
-};
+});

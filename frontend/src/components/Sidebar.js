@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 const studentLinks = [
   { label: "Dashboard",   path: "/student",      icon: "🏠" },
+  { label: "My Profile", path: "/profile", icon: "👤" },
   { label: "Courses",     path: "/courses",       icon: "📚" },
   { label: "Results",     path: "/results",       icon: "📊" },
   { label: "Timetable",   path: "/timetable",     icon: "🗓️" },
@@ -15,6 +16,7 @@ const studentLinks = [
 
 const facultyLinks = [
   { label: "Dashboard",     path: "/faculty",         icon: "🏠" },
+  { label: "My Profile", path: "/profile", icon: "👤" },
   { label: "Manage Courses",path: "/manage-courses",  icon: "📚" },
   { label: "Add Result",    path: "/add-result",      icon: "📝" },
   { label: "Announcements", path: "/announcements",   icon: "📢" },
