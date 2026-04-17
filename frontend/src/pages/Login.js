@@ -37,7 +37,7 @@ function Login() {
         overflow: "hidden" }}>
 
         {/* Red header */}
-        <div style={{ background: "#c8102e", padding: "28px",
+        <div style={{ background: "#e6a817", padding: "28px",
           textAlign: "center" }}>
           <div style={{ fontSize: "32px", fontWeight: "900",
             color: "white", letterSpacing: "-1px" }}>
@@ -85,20 +85,20 @@ function Login() {
 
           <button
             onClick={handleLogin}
-            style={{ width: "100%", background: "#c8102e",
+            style={{ width: "100%", background: "#e6a817",
               color: "white", border: "none", padding: "12px",
               borderRadius: "6px", fontWeight: "700",
               fontSize: "15px", cursor: "pointer",
               transition: "background 0.2s" }}
-            onMouseEnter={e => e.target.style.background = "#a00d24"}
-            onMouseLeave={e => e.target.style.background = "#c8102e"}>
+            onMouseEnter={e => e.target.style.background = "#e6a817"}
+            onMouseLeave={e => e.target.style.background = "#e6a817"}>
             Sign In
           </button>
 
           <div style={{ textAlign: "center", marginTop: "16px",
             fontSize: "13px", color: "#888" }}>
             Don't have an account?{" "}
-            <Link to="/signup" style={{ color: "#c8102e",
+            <Link to="/signup" style={{ color: "#e6a817",
               fontWeight: "600", textDecoration: "none" }}>
               Sign up
             </Link>
