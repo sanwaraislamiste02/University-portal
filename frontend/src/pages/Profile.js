@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
 import Layout from "../components/layout";
 
 const IMGBB_API_KEY = "86abac556693392c813acd8939f90e97";
@@ -7,31 +8,34 @@ const IMGBB_API_KEY = "86abac556693392c813acd8939f90e97";
 const EMPTY = {
   name: "", phone: "", age: "", department: "", address: "",
   dob: "", gender: "", blood: "", nationality: "", profilePic: "",
-  studentId: "", program: "", year: "", batch: "", rollNo: "", admDate: "",
+  studentId: "", program: "", year: "", batch: "", admDate: "",
   designation: "", officeRoom: "", expertise: ""
 };
 
 const inp = {
   padding: "6px 10px", border: "1px solid #ccc",
   borderRadius: "4px", fontSize: "13px",
-  outline: "none", width: "100%"
+  outline: "none", width: "100%", boxSizing: "border-box"
 };
 
-// TR is defined OUTSIDE Profile so it never gets recreated on keystrokes
 const TR = ({ label, value, field, type = "text",
               options, editMode, data, onChange }) => {
   const bg = field ? "#fff" : "#f0f5fb";
   return (
     <tr>
-      <td style={{ padding: "9px 16px", fontSize: "13px",
+      <td style={{
+        padding: "9px 16px", fontSize: "13px",
         color: "#4a7fb5", fontWeight: "600", textAlign: "right",
-        background: "#dce8f5", width: "200px",
-        borderBottom: "1px solid #ccdaea" }}>
+        background: "#dce8f5", width: "160px", minWidth: "120px",
+        borderBottom: "1px solid #ccdaea"
+      }}>
         {label}
       </td>
-      <td style={{ padding: "9px 16px", fontSize: "14px",
+      <td style={{
+        padding: "9px 16px", fontSize: "14px",
         color: "#333", background: bg,
-        borderBottom: "1px solid #e4ecf5" }}>
+        borderBottom: "1px solid #e4ecf5"
+      }}>
         {editMode && field ? (
           options ? (
             <select value={data[field]} style={inp}
@@ -50,6 +54,9 @@ const TR = ({ label, value, field, type = "text",
   );
 };
 
+// Socket.io instance (shared, created once)
+let socket = null;
+
 function Profile() {
   const email = localStorage.getItem("email");
   const role  = localStorage.getItem("role");
@@ -61,6 +68,7 @@ function Profile() {
   const [uploading, setUploading] = useState(false);
   const [showCamera, setCamera]   = useState(false);
   const [message, setMessage]     = useState({ text: "", ok: true });
+  const [liveNotice, setLiveNotice] = useState("");
 
   const fileRef   = useRef();
   const videoRef  = useRef();
@@ -70,6 +78,7 @@ function Profile() {
     setData(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // ── Fetch profile ──────────────────────────────────────────────
   useEffect(() => {
     axios.get(`http://localhost:5000/profile/${email}`)
       .then(res => {
@@ -89,7 +98,6 @@ function Profile() {
           program:     d.program     || "",
           year:        d.year        || "",
           batch:       d.batch       || "",
-          rollNo:      d.rollNo      || "",
           admDate:     d.admDate     || "",
           designation: d.designation || "",
           officeRoom:  d.officeRoom  || "",
@@ -97,6 +105,50 @@ function Profile() {
         });
         setJoined(d.createdAt || "");
       }).catch(() => {});
+  }, [email]);
+
+  // ── Socket.io real-time sync ───────────────────────────────────
+  useEffect(() => {
+    if (!socket) {
+      socket = io("http://localhost:5000");
+    }
+
+    // When another browser updates this profile, refresh it
+    socket.on("profile-updated", (updatedEmail) => {
+      if (updatedEmail === email) {
+        axios.get(`http://localhost:5000/profile/${email}`)
+          .then(res => {
+            const d = res.data;
+            setData({
+              name:        d.name        || "",
+              phone:       d.phone       || "",
+              age:         d.age         || "",
+              department:  d.department  || "",
+              address:     d.address     || "",
+              dob:         d.dob         || "",
+              gender:      d.gender      || "",
+              blood:       d.blood       || "",
+              nationality: d.nationality || "",
+              profilePic:  d.profilePic  || "",
+              studentId:   d.studentId   || "",
+              program:     d.program     || "",
+              year:        d.year        || "",
+              batch:       d.batch       || "",
+              admDate:     d.admDate     || "",
+              designation: d.designation || "",
+              officeRoom:  d.officeRoom  || "",
+              expertise:   d.expertise   || "",
+            });
+            setJoined(d.createdAt || "");
+            setLiveNotice("🔄 Profile updated from another session!");
+            setTimeout(() => setLiveNotice(""), 4000);
+          }).catch(() => {});
+      }
+    });
+
+    return () => {
+      socket.off("profile-updated");
+    };
   }, [email]);
 
   const showMsg = (text, ok = true) => {
@@ -107,8 +159,9 @@ function Profile() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.put("http://localhost:5000/profile/update",
-        { email, ...data });
+      await axios.put("http://localhost:5000/profile/update", { email, ...data });
+      // Notify all other browsers
+      socket.emit("profile-updated", email);
       showMsg("Profile updated successfully!");
       setEditMode(false);
     } catch {
@@ -132,8 +185,7 @@ function Profile() {
       form.append("image", base64);
 
       const res = await axios.post(
-        `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
-        form
+        `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, form
       );
 
       const url = res.data.data.url;
@@ -141,6 +193,7 @@ function Profile() {
         email, ...data, profilePic: url
       });
       setData(prev => ({ ...prev, profilePic: url }));
+      socket.emit("profile-updated", email);
       showMsg("Profile picture updated!");
     } catch (err) {
       showMsg("Upload failed: " +
@@ -152,8 +205,7 @@ function Profile() {
   const openCamera = async () => {
     setCamera(true);
     try {
-      const stream = await navigator.mediaDevices
-        .getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       videoRef.current.srcObject = stream;
       videoRef.current.play();
     } catch {
@@ -171,269 +223,337 @@ function Profile() {
     video.srcObject.getTracks().forEach(t => t.stop());
     setCamera(false);
     canvas.toBlob(blob => {
-      uploadToImgBB(new File([blob], "photo.jpg",
-        { type: "image/jpeg" }));
+      uploadToImgBB(new File([blob], "photo.jpg", { type: "image/jpeg" }));
     }, "image/jpeg");
   };
 
-  // shared props passed to every TR
   const trProps = { editMode, data, onChange };
 
   return (
     <Layout>
-      {/* Breadcrumb */}
-      <div style={{ fontSize: "13px", color: "#888", marginBottom: "14px" }}>
-        Home &gt; {role === "student" ? "Students" : "Faculty"} &gt;{" "}
-        <strong style={{ color: "#333" }}>{data.name || email}</strong>
-      </div>
+      {/* ── Responsive styles ── */}
+      <style>{`
+        .profile-wrapper {
+          max-width: 860px;
+          margin: 0 auto;
+          padding: 0 16px;
+          box-sizing: border-box;
+        }
+        .profile-top-card {
+          display: flex;
+          gap: 24px;
+          margin-bottom: 20px;
+          padding: 20px;
+          background: #fff;
+          border: 1px solid #dce8f5;
+          border-radius: 6px;
+          flex-wrap: wrap;
+        }
+        .profile-photo-col {
+          flex-shrink: 0;
+          text-align: center;
+        }
+        .profile-info-col {
+          flex: 1;
+          min-width: 200px;
+        }
+        .profile-header-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 18px;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #e0e0e0;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .profile-table-wrap {
+          border: 1px solid #d0dcea;
+          border-radius: 6px;
+          overflow: hidden;
+          overflow-x: auto;
+        }
+        .profile-table-wrap table {
+          width: 100%;
+          min-width: 340px;
+          border-collapse: collapse;
+        }
+        .btn-row {
+          margin-top: 14px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .live-badge {
+          background: #e8f5e9;
+          color: #2e7d32;
+          border: 1px solid #a5d6a7;
+          border-radius: 4px;
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 500;
+          margin-bottom: 12px;
+          animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-      {/* Header bar */}
-      <div style={{ display: "flex", alignItems: "center",
-        justifyContent: "space-between", marginBottom: "18px",
-        paddingBottom: "12px", borderBottom: "2px solid #e0e0e0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "18px" }}>
-            {role === "student" ? "🎓" : "👨‍🏫"}
-          </span>
-          <span style={{ fontSize: "16px", fontWeight: "700",
-            color: "#333" }}>
-            {role === "student" ? "Student info" : "Faculty info"}
-          </span>
-          <span style={{ color: "#ddd" }}>|</span>
-          <span style={{ fontSize: "13px", color: "#888" }}>Profile</span>
+        @media (max-width: 600px) {
+          .profile-top-card {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+          .profile-info-col {
+            text-align: center;
+          }
+          .profile-header-bar {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
+      `}</style>
+
+      <div className="profile-wrapper">
+
+        {/* Live notice */}
+        {liveNotice && <div className="live-badge">{liveNotice}</div>}
+
+        {/* Breadcrumb */}
+        <div style={{ fontSize: "13px", color: "#888", marginBottom: "14px" }}>
+          Home &gt; {role === "student" ? "Students" : role === "admin" ? "Admin" : "Faculty"} &gt;{" "}
+          <strong style={{ color: "#333" }}>{data.name || email}</strong>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          {!editMode ? (
-            <button onClick={() => setEditMode(true)} style={{
-              background: "#c8102e", color: "#fff", border: "none",
-              padding: "7px 18px", borderRadius: "4px",
-              fontWeight: "600", fontSize: "13px", cursor: "pointer" }}>
-              Edit Profile
-            </button>
-          ) : (
-            <>
-              <button onClick={handleSave} disabled={saving} style={{
-                background: "#1D9E75", color: "#fff", border: "none",
+
+        {/* Header bar */}
+        <div className="profile-header-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "18px" }}>
+              {role === "student" ? "🎓" : role === "admin" ? "🛡️" : "👨‍🏫"}
+            </span>
+            <span style={{ fontSize: "16px", fontWeight: "700", color: "#333" }}>
+              {role === "student" ? "Student info" : role === "admin" ? "Admin info" : "Faculty info"}
+            </span>
+            <span style={{ color: "#ddd" }}>|</span>
+            <span style={{ fontSize: "13px", color: "#888" }}>Profile</span>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {!editMode ? (
+              <button onClick={() => setEditMode(true)} style={{
+                background: "#c8102e", color: "#fff", border: "none",
                 padding: "7px 18px", borderRadius: "4px",
                 fontWeight: "600", fontSize: "13px", cursor: "pointer" }}>
-                {saving ? "Saving..." : "Save"}
+                Edit Profile
               </button>
-              <button onClick={() => setEditMode(false)} style={{
-                background: "#888", color: "#fff", border: "none",
-                padding: "7px 18px", borderRadius: "4px",
-                fontWeight: "600", fontSize: "13px", cursor: "pointer" }}>
-                Cancel
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Message */}
-      {message.text && (
-        <div style={{ marginBottom: "14px", padding: "10px 14px",
-          borderRadius: "4px", fontSize: "13px", fontWeight: "500",
-          background: message.ok ? "#E1F5EE" : "#FCEBEB",
-          color: message.ok ? "#085041" : "#791F1F" }}>
-          {message.text}
-        </div>
-      )}
-
-      {/* TOP — photo + key info */}
-      <div style={{ display: "flex", gap: "24px", marginBottom: "20px",
-        padding: "20px", background: "#fff",
-        border: "1px solid #dce8f5", borderRadius: "6px" }}>
-
-        {/* Photo column */}
-        <div style={{ flexShrink: 0, textAlign: "center" }}>
-          <div style={{ width: "110px", height: "130px",
-            border: "2px solid #c0d0e0", borderRadius: "4px",
-            overflow: "hidden", background: "#f0f4f8",
-            display: "flex", alignItems: "center",
-            justifyContent: "center", marginBottom: "8px" }}>
-            {data.profilePic ? (
-              <img src={data.profilePic} alt="Profile"
-                style={{ width: "100%", height: "100%",
-                  objectFit: "cover" }} />
             ) : (
-              <div style={{ color: "#aaa", textAlign: "center" }}>
-                <div style={{ fontSize: "44px" }}>
-                  {role === "student" ? "🎓" : "👨‍🏫"}
-                </div>
-                <div style={{ fontSize: "10px", marginTop: "4px" }}>
-                  No photo
-                </div>
-              </div>
+              <>
+                <button onClick={handleSave} disabled={saving} style={{
+                  background: "#1D9E75", color: "#fff", border: "none",
+                  padding: "7px 18px", borderRadius: "4px",
+                  fontWeight: "600", fontSize: "13px", cursor: "pointer" }}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+                <button onClick={() => setEditMode(false)} style={{
+                  background: "#888", color: "#fff", border: "none",
+                  padding: "7px 18px", borderRadius: "4px",
+                  fontWeight: "600", fontSize: "13px", cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </>
             )}
           </div>
+        </div>
 
-          <button onClick={() => fileRef.current.click()}
-            disabled={uploading}
-            style={{ width: "110px", background: "#4a7fb5",
+        {/* Message */}
+        {message.text && (
+          <div style={{ marginBottom: "14px", padding: "10px 14px",
+            borderRadius: "4px", fontSize: "13px", fontWeight: "500",
+            background: message.ok ? "#E1F5EE" : "#FCEBEB",
+            color: message.ok ? "#085041" : "#791F1F" }}>
+            {message.text}
+          </div>
+        )}
+
+        {/* TOP — photo + key info — CENTERED */}
+        <div className="profile-top-card">
+
+          {/* Photo column */}
+          <div className="profile-photo-col">
+            <div style={{ width: "110px", height: "130px",
+              border: "2px solid #c0d0e0", borderRadius: "4px",
+              overflow: "hidden", background: "#f0f4f8",
+              display: "flex", alignItems: "center",
+              justifyContent: "center", marginBottom: "8px",
+              margin: "0 auto 8px auto" }}>
+              {data.profilePic ? (
+                <img src={data.profilePic} alt="Profile"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ color: "#aaa", textAlign: "center" }}>
+                  <div style={{ fontSize: "44px" }}>
+                    {role === "student" ? "🎓" : role === "admin" ? "🛡️" : "👨‍🏫"}
+                  </div>
+                  <div style={{ fontSize: "10px", marginTop: "4px" }}>No photo</div>
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => fileRef.current.click()} disabled={uploading}
+              style={{ width: "110px", background: "#4a7fb5",
+                color: "#fff", border: "none", padding: "5px",
+                borderRadius: "3px", fontSize: "11px", fontWeight: "600",
+                cursor: "pointer", marginBottom: "4px", display: "block",
+                margin: "0 auto 4px auto" }}>
+              {uploading ? "Uploading..." : "Upload Photo"}
+            </button>
+            <button onClick={openCamera} style={{
+              width: "110px", background: "#5a6a7a",
               color: "#fff", border: "none", padding: "5px",
               borderRadius: "3px", fontSize: "11px", fontWeight: "600",
-              cursor: "pointer", marginBottom: "4px", display: "block" }}>
-            {uploading ? "Uploading..." : "Upload Photo"}
-          </button>
-          <button onClick={openCamera} style={{
-            width: "110px", background: "#5a6a7a",
-            color: "#fff", border: "none", padding: "5px",
-            borderRadius: "3px", fontSize: "11px", fontWeight: "600",
-            cursor: "pointer", display: "block" }}>
-            Take Photo
-          </button>
+              cursor: "pointer", display: "block", margin: "0 auto" }}>
+              Take Photo
+            </button>
 
-          <input type="file" ref={fileRef} style={{ display: "none" }}
-            accept="image/*"
-            onChange={e => uploadToImgBB(e.target.files[0])} />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-        </div>
+            <input type="file" ref={fileRef} style={{ display: "none" }}
+              accept="image/*"
+              onChange={e => uploadToImgBB(e.target.files[0])} />
+            <canvas ref={canvasRef} style={{ display: "none" }} />
+          </div>
 
-        {/* Key info */}
-        <div>
-          <h2 style={{ fontSize: "22px", fontWeight: "700",
-            color: "#1a1a1a", marginBottom: "10px" }}>
-            {data.name || "Name not set"}
-          </h2>
-          {role === "student" ? (
-            [["Course",       data.program],
-             ["Batch",        data.batch],
-             ["Admission No", data.studentId],
-             ["Roll Number",  data.rollNo]
-            ].map(([l, v]) => (
-              <div key={l} style={{ fontSize: "14px", color: "#c8102e",
-                fontWeight: "500", marginBottom: "3px" }}>
-                <strong>{l}:</strong> {v || "Not set"}
-              </div>
-            ))
-          ) : (
-            [["Designation", data.designation],
-             ["Department",  data.department],
-             ["Office",      data.officeRoom],
-             ["Expertise",   data.expertise]
-            ].map(([l, v]) => (
-              <div key={l} style={{ fontSize: "14px", color: "#c8102e",
-                fontWeight: "500", marginBottom: "3px" }}>
-                <strong>{l}:</strong> {v || "Not set"}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* DETAILS TABLE */}
-      <div style={{ border: "1px solid #d0dcea", borderRadius: "6px",
-        overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <tbody>
-            <TR {...trProps} label="Full Name"
-              field="name" value={data.name} />
-            <TR {...trProps} label="Date of Birth"
-              field="dob" value={data.dob} type="date" />
-            <TR {...trProps} label="Age"
-              field="age" value={data.age ? `${data.age} years` : ""}
-              type="number" />
-            <TR {...trProps} label="Blood Group" field="blood"
-              value={data.blood}
-              options={["","A+","A-","B+","B-","AB+","AB-","O+","O-"]} />
-            <TR {...trProps} label="Gender" field="gender"
-              value={data.gender}
-              options={["","Male","Female","Other"]} />
-            <TR {...trProps} label="Nationality"
-              field="nationality" value={data.nationality} />
-            <TR {...trProps} label="Phone"
-              field="phone" value={data.phone} type="tel" />
-            <TR {...trProps} label="Email" value={email} />
-            <TR {...trProps} label="Department"
-              field="department" value={data.department} />
-            <TR {...trProps} label="Address"
-              field="address" value={data.address} />
-
-            {role === "student" && <>
-              <TR {...trProps} label="Program"
-                field="program" value={data.program} />
-              <TR {...trProps} label="Year" field="year"
-                value={data.year}
-                options={["","1st Year","2nd Year","3rd Year","4th Year"]} />
-              <TR {...trProps} label="Batch"
-                field="batch" value={data.batch} />
-              <TR {...trProps} label="Roll Number"
-                field="rollNo" value={data.rollNo} />
-              <TR {...trProps} label="Student ID"
-                field="studentId" value={data.studentId} />
-              <TR {...trProps} label="Admission Date"
-                field="admDate" value={data.admDate} type="date" />
-            </>}
-
-            {role === "faculty" && <>
-              <TR {...trProps} label="Designation"
-                field="designation" value={data.designation} />
-              <TR {...trProps} label="Office Room"
-                field="officeRoom" value={data.officeRoom} />
-              <TR {...trProps} label="Expertise"
-                field="expertise" value={data.expertise} />
-            </>}
-
-            <TR {...trProps} label="Member Since"
-              value={joined ? new Date(joined).toLocaleDateString(
-                "en-US", { day:"numeric", month:"long", year:"numeric" }
-              ) : ""} />
-          </tbody>
-        </table>
-      </div>
-
-      {editMode && (
-        <div style={{ marginTop: "14px", display: "flex", gap: "10px" }}>
-          <button onClick={handleSave} disabled={saving} style={{
-            background: "#c8102e", color: "#fff", border: "none",
-            padding: "10px 28px", borderRadius: "4px",
-            fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-          <button onClick={() => setEditMode(false)} style={{
-            background: "#888", color: "#fff", border: "none",
-            padding: "10px 28px", borderRadius: "4px",
-            fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Camera modal */}
-      {showCamera && (
-        <div style={{ position: "fixed", inset: 0,
-          background: "rgba(0,0,0,0.75)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "#fff", borderRadius: "10px",
-            padding: "24px", textAlign: "center",
-            maxWidth: "480px", width: "90%" }}>
-            <h3 style={{ marginBottom: "14px", color: "#333",
-              fontSize: "16px" }}>Take a Photo</h3>
-            <video ref={videoRef} autoPlay
-              style={{ width: "100%", borderRadius: "6px",
-                marginBottom: "14px" }} />
-            <div style={{ display: "flex", gap: "10px",
-              justifyContent: "center" }}>
-              <button onClick={takePhoto} style={{
-                background: "#c8102e", color: "#fff", border: "none",
-                padding: "9px 24px", borderRadius: "4px",
-                fontWeight: "700", cursor: "pointer" }}>
-                Capture
-              </button>
-              <button onClick={() => {
-                videoRef.current?.srcObject?.getTracks()
-                  .forEach(t => t.stop());
-                setCamera(false);
-              }} style={{
-                background: "#888", color: "#fff", border: "none",
-                padding: "9px 24px", borderRadius: "4px",
-                fontWeight: "700", cursor: "pointer" }}>
-                Cancel
-              </button>
-            </div>
+          {/* Key info */}
+          <div className="profile-info-col">
+            <h2 style={{ fontSize: "22px", fontWeight: "700",
+              color: "#1a1a1a", marginBottom: "10px" }}>
+              {data.name || "Name not set"}
+            </h2>
+            {role === "student" ? (
+              [["Course",       data.program],
+               ["Batch",        data.batch],
+               ["Admission No", data.studentId],
+               ["Roll Number",  data.rollNo]
+              ].map(([l, v]) => (
+                <div key={l} style={{ fontSize: "14px", color: "#c8102e",
+                  fontWeight: "500", marginBottom: "3px" }}>
+                  <strong>{l}:</strong> {v || "Not set"}
+                </div>
+              ))
+            ) : role === "admin" ? (
+              [["Role",       "Administrator"],
+               ["Department", data.department],
+               ["Email",      email]
+              ].map(([l, v]) => (
+                <div key={l} style={{ fontSize: "14px", color: "#c8102e",
+                  fontWeight: "500", marginBottom: "3px" }}>
+                  <strong>{l}:</strong> {v || "Not set"}
+                </div>
+              ))
+            ) : (
+              [["Designation", data.designation],
+               ["Department",  data.department],
+               ["Office",      data.officeRoom],
+               ["Expertise",   data.expertise]
+              ].map(([l, v]) => (
+                <div key={l} style={{ fontSize: "14px", color: "#c8102e",
+                  fontWeight: "500", marginBottom: "3px" }}>
+                  <strong>{l}:</strong> {v || "Not set"}
+                </div>
+              ))
+            )}
           </div>
         </div>
-      )}
+
+        {/* DETAILS TABLE */}
+        <div className="profile-table-wrap">
+          <table>
+            <tbody>
+              <TR {...trProps} label="Full Name"   field="name" value={data.name} />
+              <TR {...trProps} label="Date of Birth" field="dob" value={data.dob} type="date" />
+              <TR {...trProps} label="Age"         field="age"
+                value={data.age ? `${data.age} years` : ""} type="number" />
+              <TR {...trProps} label="Blood Group" field="blood" value={data.blood}
+                options={["","A+","A-","B+","B-","AB+","AB-","O+","O-"]} />
+              <TR {...trProps} label="Gender"      field="gender" value={data.gender}
+                options={["","Male","Female","Other"]} />
+              <TR {...trProps} label="Nationality" field="nationality" value={data.nationality} />
+              <TR {...trProps} label="Phone"       field="phone" value={data.phone} type="tel" />
+              <TR {...trProps} label="Email"       value={email} />
+              <TR {...trProps} label="Department"  field="department" value={data.department} />
+              <TR {...trProps} label="Address"     field="address" value={data.address} />
+
+              {role === "student" && <>
+                <TR {...trProps} label="Program"      field="program" value={data.program} />
+                <TR {...trProps} label="Year"         field="year" value={data.year}
+                  options={["","1st Year","2nd Year","3rd Year","4th Year"]} />
+                <TR {...trProps} label="Batch"        field="batch" value={data.batch} />
+                <TR {...trProps} label="Student ID"   field="studentId" value={data.studentId} />
+                <TR {...trProps} label="Admission Date" field="admDate" value={data.admDate} type="date" />
+              </>}
+
+              {role === "faculty" && <>
+                <TR {...trProps} label="Designation" field="designation" value={data.designation} />
+                <TR {...trProps} label="Office Room" field="officeRoom" value={data.officeRoom} />
+                <TR {...trProps} label="Expertise"   field="expertise" value={data.expertise} />
+              </>}
+
+              <TR {...trProps} label="Member Since"
+                value={joined ? new Date(joined).toLocaleDateString(
+                  "en-US", { day:"numeric", month:"long", year:"numeric" }
+                ) : ""} />
+            </tbody>
+          </table>
+        </div>
+
+        {editMode && (
+          <div className="btn-row">
+            <button onClick={handleSave} disabled={saving} style={{
+              background: "#c8102e", color: "#fff", border: "none",
+              padding: "10px 28px", borderRadius: "4px",
+              fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button onClick={() => setEditMode(false)} style={{
+              background: "#888", color: "#fff", border: "none",
+              padding: "10px 28px", borderRadius: "4px",
+              fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Camera modal */}
+        {showCamera && (
+          <div style={{ position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.75)", display: "flex",
+            alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+            <div style={{ background: "#fff", borderRadius: "10px",
+              padding: "24px", textAlign: "center",
+              maxWidth: "480px", width: "90%" }}>
+              <h3 style={{ marginBottom: "14px", color: "#333", fontSize: "16px" }}>
+                Take a Photo
+              </h3>
+              <video ref={videoRef} autoPlay
+                style={{ width: "100%", borderRadius: "6px", marginBottom: "14px" }} />
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button onClick={takePhoto} style={{
+                  background: "#c8102e", color: "#fff", border: "none",
+                  padding: "9px 24px", borderRadius: "4px",
+                  fontWeight: "700", cursor: "pointer" }}>
+                  Capture
+                </button>
+                <button onClick={() => {
+                  videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
+                  setCamera(false);
+                }} style={{
+                  background: "#888", color: "#fff", border: "none",
+                  padding: "9px 24px", borderRadius: "4px",
+                  fontWeight: "700", cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
     </Layout>
   );
 }
