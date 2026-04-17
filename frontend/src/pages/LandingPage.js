@@ -30,7 +30,7 @@ function LandingPage() {
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center" }}>
           <span style={{ fontSize: "28px", fontWeight: "900",
-            letterSpacing: "-1px", color: "#c8102e" }}>
+            letterSpacing: "-1px", color: "#e6a817" }}>
             <span style={{ fontStyle: "italic", fontWeight: "300",
               fontSize: "22px" }}>my</span>Metro
           </span>
@@ -52,7 +52,7 @@ function LandingPage() {
 
         {/* Big logo text */}
         <div style={{ fontSize: "56px", fontWeight: "900",
-          letterSpacing: "-2px", color: "#c8102e",
+          letterSpacing: "-2px", color: "#e6a817",
           marginBottom: "28px", lineHeight: 1 }}>
           <span style={{ fontStyle: "italic", fontWeight: "300",
             fontSize: "44px" }}>my</span>Metro
@@ -78,13 +78,13 @@ function LandingPage() {
           justifyContent: "center", flexWrap: "wrap" }}>
           <button
             onClick={() => navigate("/login")}
-            style={{ background: "#c8102e", color: "white",
+            style={{ background: "#e6a817", color: "white",
               border: "none", padding: "14px 36px",
               borderRadius: "4px", fontWeight: "700",
               fontSize: "16px", cursor: "pointer",
               minWidth: "220px", transition: "background 0.2s" }}
-            onMouseEnter={e => e.target.style.background = "#a00d24"}
-            onMouseLeave={e => e.target.style.background = "#c8102e"}>
+            onMouseEnter={e => e.target.style.background = "#e6a817"}
+            onMouseLeave={e => e.target.style.background = "#e6a817"}>
             Student MyMetro
           </button>
           <button
@@ -135,7 +135,7 @@ function LandingPage() {
               display: "flex", alignItems: "center",
               justifyContent: "space-between" }}>
               <span style={{ fontSize: "16px", fontWeight: "900",
-                color: "#c8102e", letterSpacing: "-0.5px" }}>
+                color: "#e6a817", letterSpacing: "-0.5px" }}>
                 <span style={{ fontStyle: "italic", fontWeight: "300",
                   fontSize: "13px" }}>my</span>Metro
               </span>
@@ -160,7 +160,7 @@ function LandingPage() {
               gap: "8px" }}>
               {["Learn@Metro", "Student Home", "The Service Hub"].map(label => (
                 <div key={label} style={{
-                  background: "#c8102e", color: "white",
+                  background: "#e6a817", color: "white",
                   padding: "12px", borderRadius: "4px",
                   fontSize: "12px", fontWeight: "600",
                   display: "flex", alignItems: "center", gap: "6px" }}>
