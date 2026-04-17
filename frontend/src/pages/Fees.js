@@ -54,7 +54,7 @@ function Fees() {
             <div style={{ fontSize: "13px", opacity: 0.8 }}>Total outstanding</div>
             <div style={{ fontSize: "28px", fontWeight: "700",
               color: "#e6a817" }}>
-              ${total.toFixed(2)}
+              {total.toFixed(2)}
             </div>
           </div>
           <div style={{ textAlign: "right", fontSize: "13px", opacity: 0.8 }}>
@@ -92,7 +92,7 @@ function Fees() {
                 gap: "16px" }}>
                 <span style={{ fontWeight: "700", fontSize: "16px",
                   color: "#4a3728" }}>
-                  ${fee.amount.toFixed(2)}
+                  {fee.amount.toFixed(2)}
                 </span>
                 <button
                   onClick={() => handlePay(fee._id)}
