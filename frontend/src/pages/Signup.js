@@ -3,15 +3,21 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 function Signup() {
+  const [name, setName] = useState(""); // ADDED: Name state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
+  const [loading, setLoading] = useState(false); // ADDED: Loading state
 
   const navigate = useNavigate();
 
   const handleSignup = async () => {
+    if (!name || !email || !password) return alert("Please fill all fields"); // ADDED: Validation
+    
+    setLoading(true); // ADDED: Start loading
     try {
       const res = await axios.post("http://localhost:5000/signup", {
+        name, // ADDED: Sending name to backend
         email,
         password,
         role
@@ -20,6 +26,7 @@ function Signup() {
       alert(res.data.message || "Signup successful!");
 
       // clear input (better UX)
+      setName(""); // ADDED
       setEmail("");
       setPassword("");
       setRole("student");
@@ -28,6 +35,8 @@ function Signup() {
 
     } catch (err) {
       alert(err.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false); // ADDED: Stop loading
     }
   };
 
@@ -37,6 +46,15 @@ function Signup() {
       <div className="bg-white p-8 rounded shadow w-80">
 
         <h2 className="text-xl font-bold mb-4 text-center">Signup</h2>
+
+        {/* NAME INPUT */}
+        <input
+          type="text"
+          placeholder="Full Name"
+          className="border p-2 w-full mb-3"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
         <input
           type="email"
@@ -67,9 +85,12 @@ function Signup() {
 
         <button
           onClick={handleSignup}
-          className="bg-green-600 text-white w-full p-2 rounded hover:bg-green-700 transition"
+          disabled={loading} // ADDED: Disable button while loading
+          className={`${
+            loading ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
+          } text-white w-full p-2 rounded transition`}
         >
-          Signup
+          {loading ? "Creating Account..." : "Signup"}
         </button>
 
       </div>

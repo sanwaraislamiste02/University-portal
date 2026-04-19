@@ -1,13 +1,18 @@
-// backend/models/Course.js
-// Adding an enrolledStudents array to track who joined each course
-// It stores a list of student emails — e.g. ["alice@uni.com", "bob@uni.com"]
+// ============================================================
+// THIS FILE GOES IN:
+// D:\University-portal\backend\models\Course.js
+// ============================================================
 const mongoose = require("mongoose");
 
 const courseSchema = new mongoose.Schema({
   name:             { type: String, required: true },
-  instructor:       { type: String, required: true },
+  code:             { type: String, required: true, unique: true },
+  department:       { type: String, required: true },
+  instructor:       { type: String, default: "" },
+  instructorEmail:  { type: String, default: "" },
   description:      { type: String, default: "" },
-  enrolledStudents: { type: [String], default: [] } // list of student emails
+  credits:          { type: Number, default: 3 },
+  enrolledStudents: { type: [String], default: [] },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Course", courseSchema);

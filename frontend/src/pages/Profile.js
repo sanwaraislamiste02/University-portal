@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
-import { io } from "socket.io-client";
 import Layout from "../components/layout";
+import { io } from "socket.io-client"; // ADDED: Socket import
 
 const IMGBB_API_KEY = "86abac556693392c813acd8939f90e97";
 
@@ -23,19 +23,15 @@ const TR = ({ label, value, field, type = "text",
   const bg = field ? "#fff" : "#f0f5fb";
   return (
     <tr>
-      <td style={{
-        padding: "9px 16px", fontSize: "13px",
+      <td style={{ padding: "9px 16px", fontSize: "13px",
         color: "#4a7fb5", fontWeight: "600", textAlign: "right",
         background: "#dce8f5", width: "160px", minWidth: "120px",
-        borderBottom: "1px solid #ccdaea"
-      }}>
+        borderBottom: "1px solid #ccdaea" }}>
         {label}
       </td>
-      <td style={{
-        padding: "9px 16px", fontSize: "14px",
+      <td style={{ padding: "9px 16px", fontSize: "14px",
         color: "#333", background: bg,
-        borderBottom: "1px solid #e4ecf5"
-      }}>
+        borderBottom: "1px solid #e4ecf5" }}>
         {editMode && field ? (
           options ? (
             <select value={data[field]} style={inp}
@@ -54,8 +50,8 @@ const TR = ({ label, value, field, type = "text",
   );
 };
 
-// Socket.io instance (shared, created once)
-let socket = null;
+// ADDED: Initialize socket variable outside component to prevent multiple connections
+let socket;
 
 function Profile() {
   const email = localStorage.getItem("email");
@@ -68,7 +64,7 @@ function Profile() {
   const [uploading, setUploading] = useState(false);
   const [showCamera, setCamera]   = useState(false);
   const [message, setMessage]     = useState({ text: "", ok: true });
-  const [liveNotice, setLiveNotice] = useState("");
+  const [liveNotice, setLiveNotice] = useState(""); // ADDED: Notice state
 
   const fileRef   = useRef();
   const videoRef  = useRef();
@@ -78,78 +74,37 @@ function Profile() {
     setData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // ── Fetch profile ──────────────────────────────────────────────
-  useEffect(() => {
+  // ── Fetch Profile Function ──
+  const fetchProfile = useCallback(() => {
     axios.get(`http://localhost:5000/profile/${email}`)
       .then(res => {
-        const d = res.data;
-        setData({
-          name:        d.name        || "",
-          phone:       d.phone       || "",
-          age:         d.age         || "",
-          department:  d.department  || "",
-          address:     d.address     || "",
-          dob:         d.dob         || "",
-          gender:      d.gender      || "",
-          blood:       d.blood       || "",
-          nationality: d.nationality || "",
-          profilePic:  d.profilePic  || "",
-          studentId:   d.studentId   || "",
-          program:     d.program     || "",
-          year:        d.year        || "",
-          batch:       d.batch       || "",
-          admDate:     d.admDate     || "",
-          designation: d.designation || "",
-          officeRoom:  d.officeRoom  || "",
-          expertise:   d.expertise   || "",
-        });
-        setJoined(d.createdAt || "");
+        setData(res.data);
+        setJoined(res.data.createdAt || "");
       }).catch(() => {});
   }, [email]);
 
-  // ── Socket.io real-time sync ───────────────────────────────────
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // ── ADDED: Socket.io Real-time Logic ──
   useEffect(() => {
     if (!socket) {
       socket = io("http://localhost:5000");
     }
 
-    // When another browser updates this profile, refresh it
     socket.on("profile-updated", (updatedEmail) => {
       if (updatedEmail === email) {
-        axios.get(`http://localhost:5000/profile/${email}`)
-          .then(res => {
-            const d = res.data;
-            setData({
-              name:        d.name        || "",
-              phone:       d.phone       || "",
-              age:         d.age         || "",
-              department:  d.department  || "",
-              address:     d.address     || "",
-              dob:         d.dob         || "",
-              gender:      d.gender      || "",
-              blood:       d.blood       || "",
-              nationality: d.nationality || "",
-              profilePic:  d.profilePic  || "",
-              studentId:   d.studentId   || "",
-              program:     d.program     || "",
-              year:        d.year        || "",
-              batch:       d.batch       || "",
-              admDate:     d.admDate     || "",
-              designation: d.designation || "",
-              officeRoom:  d.officeRoom  || "",
-              expertise:   d.expertise   || "",
-            });
-            setJoined(d.createdAt || "");
-            setLiveNotice("🔄 Profile updated from another session!");
-            setTimeout(() => setLiveNotice(""), 4000);
-          }).catch(() => {});
+        fetchProfile();
+        setLiveNotice("🔄 Profile updated in real-time!");
+        setTimeout(() => setLiveNotice(""), 4000);
       }
     });
 
     return () => {
       socket.off("profile-updated");
     };
-  }, [email]);
+  }, [email, fetchProfile]);
 
   const showMsg = (text, ok = true) => {
     setMessage({ text, ok });
@@ -160,8 +115,7 @@ function Profile() {
     setSaving(true);
     try {
       await axios.put("http://localhost:5000/profile/update", { email, ...data });
-      // Notify all other browsers
-      socket.emit("profile-updated", email);
+      socket.emit("profile-updated", email); // ADDED: Notify server of change
       showMsg("Profile updated successfully!");
       setEditMode(false);
     } catch {
@@ -180,20 +134,17 @@ function Profile() {
         reader.onload  = () => resolve(reader.result.split(",")[1]);
         reader.onerror = reject;
       });
-
       const form = new FormData();
       form.append("image", base64);
-
       const res = await axios.post(
         `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, form
       );
-
       const url = res.data.data.url;
       await axios.put("http://localhost:5000/profile/update", {
         email, ...data, profilePic: url
       });
       setData(prev => ({ ...prev, profilePic: url }));
-      socket.emit("profile-updated", email);
+      socket.emit("profile-updated", email); // ADDED: Notify server of photo change
       showMsg("Profile picture updated!");
     } catch (err) {
       showMsg("Upload failed: " +
@@ -231,107 +182,59 @@ function Profile() {
 
   return (
     <Layout>
-      {/* ── Responsive styles ── */}
       <style>{`
-        .profile-wrapper {
-          max-width: 860px;
-          margin: 0 auto;
-          padding: 0 16px;
-          box-sizing: border-box;
+        .profile-wrapper { max-width: 860px; margin: 0 auto; position: relative; }
+        .live-badge { 
+            position: absolute; top: -40px; left: 50%; transform: translateX(-50%);
+            background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;
+            padding: 6px 15px; borderRadius: 4px; font-size: 13px; font-weight: 500;
+            animation: slideDown 0.3s ease-out;
         }
-        .profile-top-card {
-          display: flex;
-          gap: 24px;
-          margin-bottom: 20px;
-          padding: 20px;
-          background: #fff;
-          border: 1px solid #dce8f5;
-          border-radius: 6px;
-          flex-wrap: wrap;
-        }
-        .profile-photo-col {
-          flex-shrink: 0;
-          text-align: center;
-        }
-        .profile-info-col {
-          flex: 1;
-          min-width: 200px;
-        }
-        .profile-header-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 18px;
-          padding-bottom: 12px;
-          border-bottom: 2px solid #e0e0e0;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-        .profile-table-wrap {
-          border: 1px solid #d0dcea;
-          border-radius: 6px;
-          overflow: hidden;
-          overflow-x: auto;
-        }
-        .profile-table-wrap table {
-          width: 100%;
-          min-width: 340px;
-          border-collapse: collapse;
-        }
-        .btn-row {
-          margin-top: 14px;
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .live-badge {
-          background: #e8f5e9;
-          color: #2e7d32;
-          border: 1px solid #a5d6a7;
-          border-radius: 4px;
-          padding: 8px 14px;
-          font-size: 13px;
-          font-weight: 500;
-          margin-bottom: 12px;
-          animation: fadeIn 0.3s;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-
+        @keyframes slideDown { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .profile-top-card { display: flex; gap: 24px; margin-bottom: 20px;
+          padding: 20px; background: #fff; border: 1px solid #dce8f5;
+          border-radius: 6px; flex-wrap: wrap; }
+        .profile-photo-col { flex-shrink: 0; text-align: center; }
+        .profile-info-col { flex: 1; min-width: 200px; }
+        .profile-header-bar { display: flex; align-items: center;
+          justify-content: space-between; margin-bottom: 18px;
+          padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;
+          flex-wrap: wrap; gap: 10px; }
+        .profile-table-wrap { border: 1px solid #d0dcea;
+          border-radius: 6px; overflow: hidden; overflow-x: auto; }
+        .profile-table-wrap table { width: 100%; min-width: 340px;
+          border-collapse: collapse; }
+        .btn-row { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
         @media (max-width: 600px) {
-          .profile-top-card {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          .profile-info-col {
-            text-align: center;
-          }
-          .profile-header-bar {
-            flex-direction: column;
-            align-items: flex-start;
-          }
+          .profile-top-card { flex-direction: column; align-items: center; text-align: center; }
+          .profile-info-col { text-align: center; }
+          .profile-header-bar { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
 
       <div className="profile-wrapper">
-
-        {/* Live notice */}
+        {/* ADDED: Real-time notification UI */}
         {liveNotice && <div className="live-badge">{liveNotice}</div>}
 
         {/* Breadcrumb */}
         <div style={{ fontSize: "13px", color: "#888", marginBottom: "14px" }}>
-          Home &gt; {role === "student" ? "Students" : role === "admin" ? "Admin" : "Faculty"} &gt;{" "}
+          Home &gt; {role === "student" ? "Students"
+            : role === "admin" ? "Admin" : "Faculty"} &gt;{" "}
           <strong style={{ color: "#333" }}>{data.name || email}</strong>
         </div>
 
         {/* Header bar */}
         <div className="profile-header-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center",
+            gap: "10px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "18px" }}>
-              {role === "student" ? "🎓" : role === "admin" ? "🛡️" : "👨‍🏫"}
+              {role === "student" ? "🎓"
+                : role === "admin" ? "🛡️" : "👨‍🏫"}
             </span>
-            <span style={{ fontSize: "16px", fontWeight: "700", color: "#333" }}>
-              {role === "student" ? "Student info" : role === "admin" ? "Admin info" : "Faculty info"}
+            <span style={{ fontSize: "16px", fontWeight: "700",
+              color: "#333" }}>
+              {role === "student" ? "Student info"
+                : role === "admin" ? "Admin info" : "Faculty info"}
             </span>
             <span style={{ color: "#ddd" }}>|</span>
             <span style={{ fontSize: "13px", color: "#888" }}>Profile</span>
@@ -373,7 +276,7 @@ function Profile() {
           </div>
         )}
 
-        {/* TOP — photo + key info — CENTERED */}
+        {/* TOP — photo + key info */}
         <div className="profile-top-card">
 
           {/* Photo column */}
@@ -386,30 +289,34 @@ function Profile() {
               margin: "0 auto 8px auto" }}>
               {data.profilePic ? (
                 <img src={data.profilePic} alt="Profile"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  style={{ width: "100%", height: "100%",
+                    objectFit: "cover" }} />
               ) : (
                 <div style={{ color: "#aaa", textAlign: "center" }}>
                   <div style={{ fontSize: "44px" }}>
-                    {role === "student" ? "🎓" : role === "admin" ? "🛡️" : "👨‍🏫"}
+                    {role === "student" ? "🎓"
+                      : role === "admin" ? "🛡️" : "👨‍🏫"}
                   </div>
-                  <div style={{ fontSize: "10px", marginTop: "4px" }}>No photo</div>
+                  <div style={{ fontSize: "10px", marginTop: "4px" }}>
+                    No photo
+                  </div>
                 </div>
               )}
             </div>
 
-            <button onClick={() => fileRef.current.click()} disabled={uploading}
-              style={{ width: "110px", background: "#4a7fb5",
-                color: "#fff", border: "none", padding: "5px",
-                borderRadius: "3px", fontSize: "11px", fontWeight: "600",
-                cursor: "pointer", marginBottom: "4px", display: "block",
-                margin: "0 auto 4px auto" }}>
+            <button onClick={() => fileRef.current.click()}
+              disabled={uploading} style={{
+                width: "110px", background: "#4a7fb5", color: "#fff",
+                border: "none", padding: "5px", borderRadius: "3px",
+                fontSize: "11px", fontWeight: "600", cursor: "pointer",
+                display: "block", margin: "0 auto 4px auto" }}>
               {uploading ? "Uploading..." : "Upload Photo"}
             </button>
             <button onClick={openCamera} style={{
-              width: "110px", background: "#5a6a7a",
-              color: "#fff", border: "none", padding: "5px",
-              borderRadius: "3px", fontSize: "11px", fontWeight: "600",
-              cursor: "pointer", display: "block", margin: "0 auto" }}>
+              width: "110px", background: "#5a6a7a", color: "#fff",
+              border: "none", padding: "5px", borderRadius: "3px",
+              fontSize: "11px", fontWeight: "600", cursor: "pointer",
+              display: "block", margin: "0 auto" }}>
               Take Photo
             </button>
 
@@ -426,8 +333,8 @@ function Profile() {
               {data.name || "Name not set"}
             </h2>
             {role === "student" ? (
-              [["Course",       data.program],
-               ["Batch",        data.batch],
+              [["Course",        data.program],
+               ["Batch",         data.batch],
                ["Admission No", data.studentId],
                ["Roll Number",  data.rollNo]
               ].map(([l, v]) => (
@@ -437,7 +344,7 @@ function Profile() {
                 </div>
               ))
             ) : role === "admin" ? (
-              [["Role",       "Administrator"],
+              [["Role",        "Administrator"],
                ["Department", data.department],
                ["Email",      email]
               ].map(([l, v]) => (
@@ -465,33 +372,51 @@ function Profile() {
         <div className="profile-table-wrap">
           <table>
             <tbody>
-              <TR {...trProps} label="Full Name"   field="name" value={data.name} />
-              <TR {...trProps} label="Date of Birth" field="dob" value={data.dob} type="date" />
-              <TR {...trProps} label="Age"         field="age"
-                value={data.age ? `${data.age} years` : ""} type="number" />
-              <TR {...trProps} label="Blood Group" field="blood" value={data.blood}
+              <TR {...trProps} label="Full Name"
+                field="name" value={data.name} />
+              <TR {...trProps} label="Date of Birth"
+                field="dob" value={data.dob} type="date" />
+              <TR {...trProps} label="Age" field="age"
+                value={data.age ? `${data.age} years` : ""}
+                type="number" />
+              <TR {...trProps} label="Blood Group" field="blood"
+                value={data.blood}
                 options={["","A+","A-","B+","B-","AB+","AB-","O+","O-"]} />
-              <TR {...trProps} label="Gender"      field="gender" value={data.gender}
+              <TR {...trProps} label="Gender" field="gender"
+                value={data.gender}
                 options={["","Male","Female","Other"]} />
-              <TR {...trProps} label="Nationality" field="nationality" value={data.nationality} />
-              <TR {...trProps} label="Phone"       field="phone" value={data.phone} type="tel" />
-              <TR {...trProps} label="Email"       value={email} />
-              <TR {...trProps} label="Department"  field="department" value={data.department} />
-              <TR {...trProps} label="Address"     field="address" value={data.address} />
+              <TR {...trProps} label="Nationality"
+                field="nationality" value={data.nationality} />
+              <TR {...trProps} label="Phone"
+                field="phone" value={data.phone} type="tel" />
+              <TR {...trProps} label="Email" value={email} />
+              <TR {...trProps} label="Department"
+                field="department" value={data.department} />
+              <TR {...trProps} label="Address"
+                field="address" value={data.address} />
 
               {role === "student" && <>
-                <TR {...trProps} label="Program"      field="program" value={data.program} />
-                <TR {...trProps} label="Year"         field="year" value={data.year}
-                  options={["","1st Year","2nd Year","3rd Year","4th Year"]} />
-                <TR {...trProps} label="Batch"        field="batch" value={data.batch} />
-                <TR {...trProps} label="Student ID"   field="studentId" value={data.studentId} />
-                <TR {...trProps} label="Admission Date" field="admDate" value={data.admDate} type="date" />
+                <TR {...trProps} label="Program"
+                  field="program" value={data.program} />
+                <TR {...trProps} label="Year" field="year"
+                  value={data.year}
+                  options={["","1st Year","2nd Year",
+                    "3rd Year","4th Year"]} />
+                <TR {...trProps} label="Batch"
+                  field="batch" value={data.batch} />
+                <TR {...trProps} label="Student ID"
+                  field="studentId" value={data.studentId} />
+                <TR {...trProps} label="Admission Date"
+                  field="admDate" value={data.admDate} type="date" />
               </>}
 
               {role === "faculty" && <>
-                <TR {...trProps} label="Designation" field="designation" value={data.designation} />
-                <TR {...trProps} label="Office Room" field="officeRoom" value={data.officeRoom} />
-                <TR {...trProps} label="Expertise"   field="expertise" value={data.expertise} />
+                <TR {...trProps} label="Designation"
+                  field="designation" value={data.designation} />
+                <TR {...trProps} label="Office Room"
+                  field="officeRoom" value={data.officeRoom} />
+                <TR {...trProps} label="Expertise"
+                  field="expertise" value={data.expertise} />
               </>}
 
               <TR {...trProps} label="Member Since"
@@ -523,16 +448,17 @@ function Profile() {
         {showCamera && (
           <div style={{ position: "fixed", inset: 0,
             background: "rgba(0,0,0,0.75)", display: "flex",
-            alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+            alignItems: "center", justifyContent: "center",
+            zIndex: 1000 }}>
             <div style={{ background: "#fff", borderRadius: "10px",
               padding: "24px", textAlign: "center",
               maxWidth: "480px", width: "90%" }}>
-              <h3 style={{ marginBottom: "14px", color: "#333", fontSize: "16px" }}>
-                Take a Photo
-              </h3>
-              <video ref={videoRef} autoPlay
-                style={{ width: "100%", borderRadius: "6px", marginBottom: "14px" }} />
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <h3 style={{ marginBottom: "14px", color: "#333",
+                fontSize: "16px" }}>Take a Photo</h3>
+              <video ref={videoRef} autoPlay style={{ width: "100%",
+                borderRadius: "6px", marginBottom: "14px" }} />
+              <div style={{ display: "flex", gap: "10px",
+                justifyContent: "center" }}>
                 <button onClick={takePhoto} style={{
                   background: "#c8102e", color: "#fff", border: "none",
                   padding: "9px 24px", borderRadius: "4px",
@@ -540,7 +466,8 @@ function Profile() {
                   Capture
                 </button>
                 <button onClick={() => {
-                  videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
+                  videoRef.current?.srcObject?.getTracks()
+                    .forEach(t => t.stop());
                   setCamera(false);
                 }} style={{
                   background: "#888", color: "#fff", border: "none",
@@ -552,7 +479,6 @@ function Profile() {
             </div>
           </div>
         )}
-
       </div>
     </Layout>
   );
