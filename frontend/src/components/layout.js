@@ -129,9 +129,9 @@ function Layout({ children }) {
       <footer style={{ background: "#4a3728", color: "#ccc",
         padding: "24px 32px", fontSize: "13px" }}>
         <div style={{ maxWidth: "960px", margin: "0 auto",
-          display: "flex", flexDirection: "column", // Changed to column
-          alignItems: "center", // Center horizontally
-          textAlign: "center", // Center text
+          display: "flex", flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center", 
           gap: "12px" }}>
           <div>
             <div style={{ fontWeight: "700", fontSize: "16px",
@@ -142,7 +142,7 @@ function Layout({ children }) {
               University Management System · CSE Final Year Project
             </div>
           </div>
-          {/* Removed the dashboard/courses link div from here */}
+      
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)",
           marginTop: "16px", paddingTop: "12px",

@@ -22,7 +22,7 @@ import RateFaculty from "./pages/RateFaculty";
 import FacultyList from "./pages/FacultyList";
 import LandingPage from "./pages/LandingPage";
 import Profile from "./pages/Profile";
-
+import AddResults from "./pages/AddResults";
 // Component Imports
 import PrivateRoute from "./components/Privateroute";
 import RoleRoute from "./components/RoleRoute";
@@ -67,6 +67,7 @@ function App() {
         <Route path="/rate-faculty" element={<PrivateRoute><RateFaculty /></PrivateRoute>} />
         <Route path="/faculty-list" element={<PrivateRoute><FacultyList /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route path="/add-result" element={<PrivateRoute><AddResults /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   );

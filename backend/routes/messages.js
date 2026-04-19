@@ -1,13 +1,8 @@
-// backend/routes/messages.js
-// Three doors:
-// POST /messages        — student sends a message
-// GET  /messages/:email — faculty sees messages sent to them
-// PUT  /messages/:id    — mark a message as read
 const express = require("express");
 const router  = express.Router();
 const Message = require("../models/Message");
 
-// Student sends a message
+// POST — student sends a message
 router.post("/", async (req, res) => {
   try {
     const { fromEmail, toEmail, subject, message } = req.body;
@@ -18,22 +13,48 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Faculty fetches their inbox
-router.get("/:email", async (req, res) => {
+// POST — faculty replies to a message
+router.post("/reply/:id", async (req, res) => {
   try {
-    const messages = await Message.find({ toEmail: req.params.email })
-      .sort({ createdAt: -1 }); // newest first
+    const { reply } = req.body;
+    const message = await Message.findByIdAndUpdate(
+      req.params.id,
+      { reply, read: true },
+      { new: true }
+    );
+    res.json({ message: "Reply sent!", data: message });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// PUT — mark message as read
+router.put("/:id/read", async (req, res) => {
+  try {
+    await Message.findByIdAndUpdate(req.params.id, { read: true });
+    res.json({ message: "Marked as read" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET — messages sent BY a student (specific route — must be above /:email)
+router.get("/sent/:email", async (req, res) => {
+  try {
+    const messages = await Message.find({ fromEmail: req.params.email })
+      .sort({ createdAt: -1 });
     res.json(messages);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Mark message as read
-router.put("/:id/read", async (req, res) => {
+// GET — faculty inbox (dynamic route — must be LAST)
+router.get("/:email", async (req, res) => {
   try {
-    await Message.findByIdAndUpdate(req.params.id, { read: true });
-    res.json({ message: "Marked as read" });
+    const messages = await Message.find({ toEmail: req.params.email })
+      .sort({ createdAt: -1 });
+    res.json(messages);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
