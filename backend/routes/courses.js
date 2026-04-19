@@ -1,51 +1,51 @@
-// backend/routes/courses.js — create this file
-// GET  /courses         — fetch all courses
-// POST /courses/enrol   — student enrols in a course
-// POST /courses/add     — admin/faculty adds a new course
+// backend/routes/courses.js
 const express = require("express");
 const router  = express.Router();
 const Course  = require("../models/Course");
 
-// Fetch all courses
-// Frontend calls this to show the courses list
+// GET all courses (optionally filter by ?department=CSE)
 router.get("/", async (req, res) => {
   try {
-    const courses = await Course.find();
+    const filter = req.query.department ? { department: req.query.department } : {};
+    const courses = await Course.find(filter).sort({ department: 1, code: 1 });
     res.json(courses);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Student enrols in a course
-// Adds their email to the enrolledStudents array if not already there
+// Student enrols
 router.post("/enrol", async (req, res) => {
   try {
     const { courseId, studentEmail } = req.body;
-
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
-
-    // check if already enrolled
-    if (course.enrolledStudents.includes(studentEmail)) {
+    if (course.enrolledStudents.includes(studentEmail))
       return res.status(400).json({ message: "Already enrolled" });
-    }
-
     course.enrolledStudents.push(studentEmail);
     await course.save();
-
     res.json({ message: "Enrolled successfully!" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Admin or faculty adds a new course
+// Admin adds a course
 router.post("/add", async (req, res) => {
   try {
-    const { name, instructor, description } = req.body;
-    const course = await Course.create({ name, instructor, description });
+    const { name, code, department, instructor, instructorEmail, description, credits } = req.body;
+    const course = await Course.create({ name, code, department, instructor, instructorEmail, description, credits: credits || 3 });
     res.status(201).json({ message: "Course added", course });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// Admin deletes a course
+router.delete("/:id", async (req, res) => {
+  try {
+    await Course.findByIdAndDelete(req.params.id);
+    res.json({ message: "Deleted" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
