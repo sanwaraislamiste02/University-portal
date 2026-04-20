@@ -43,6 +43,10 @@ function FacultyDashboard() {
       desc: "View the weekly class schedule.",
       path: "/timetable",
       stat: "Weekly schedule" },
+      { icon: "👥", title: "My Students",
+      desc: "View students enrolled in your courses.",
+      path: "/my-students",
+      stat: `${courses} course${courses !== 1 ? "s" : ""}` },
   ];
 
   return (

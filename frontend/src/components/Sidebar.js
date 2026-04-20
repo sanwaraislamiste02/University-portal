@@ -22,6 +22,7 @@ const facultyLinks = [
   { label: "Announcements",   path: "/announcements",         icon: "📢" },
   { label: "Inbox",           path: "/inbox",                 icon: "✉️" },
   { label: "Post Announcement", path: "/post-announcement",   icon: "📣" },
+  { label: "My Students", path: "/my-students", icon: "👥" },
 ];
 
 const adminLinks = [

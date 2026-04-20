@@ -26,6 +26,7 @@ import AddResults from "./pages/AddResults";
 // Component Imports
 import PrivateRoute from "./components/Privateroute";
 import RoleRoute from "./components/RoleRoute";
+import MyStudents from "./pages/MyStudents";
 
 function App() {
   return (
@@ -68,6 +69,8 @@ function App() {
         <Route path="/faculty-list" element={<PrivateRoute><FacultyList /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/add-result" element={<PrivateRoute><AddResults /></PrivateRoute>} />
+        <Route path="/my-students" element={<PrivateRoute><MyStudents /></PrivateRoute>} />
+
       </Routes>
     </BrowserRouter>
   );
